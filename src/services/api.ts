@@ -1,4 +1,4 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3001';
+export const API_BASE_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3001';
 const API_TIMEOUT_MS = 15000; // 15 segundos
 const API_MAX_RETRIES = 1;    // 1 retry automático
 

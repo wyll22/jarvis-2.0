@@ -49,6 +49,7 @@ import {
   updateClientName,
   registerClient,
   upgradeClient,
+  API_BASE_URL,
 } from './services/api';
 
 type Client = {
@@ -497,12 +498,7 @@ export default function App() {
 
   // ─── Socket.io — QR Code e status WhatsApp em tempo real ─────────────────────
   useEffect(() => {
-    const backendUrl =
-      window.location.hostname === 'localhost'
-        ? 'http://localhost:3001'
-        : `http://${window.location.hostname}:3001`;
-
-    const socket = ioClient(backendUrl, { transports: ['websocket', 'polling'] });
+    const socket = ioClient(API_BASE_URL, { transports: ['websocket', 'polling'] });
 
     socket.on('connect', () => {
       console.log('[Socket.io] Conectado ao backend J.A.R.V.I.S.');
@@ -661,12 +657,7 @@ export default function App() {
 
     try {
       setIsSpeaking(true);
-      // Pega a URL atual e troca só a porta para 3001, assim funciona tanto em localhost quanto no IP da rede
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3001' 
-        : `http://${window.location.hostname}:3001`;
-        
-      const response = await fetch(`${baseUrl}/api/tts/download`, {
+      const response = await fetch(`${API_BASE_URL}/api/tts/download`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: cleanText }),

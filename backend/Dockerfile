@@ -80,7 +80,7 @@ EXPOSE 3001
 # Docker verifica se o backend está respondendo a cada 30s.
 # /api/health deve retornar 200 — se falhar 3x, container é marcado unhealthy.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD wget -qO- http://localhost:3001/api/health || exit 1
+    CMD wget -qO- "http://localhost:${PORT:-3001}/api/health" || exit 1
 
 # ── Comando de inicialização ──────────────────────────────────────────────────
 # Roda o JavaScript compilado em modo produção (sem tsx, sem hot-reload)

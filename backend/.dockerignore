@@ -35,7 +35,6 @@ storage/audio/
 *.log
 
 # ── TypeScript e configurações de dev ────────────────────────────────────────
-tsconfig.json          # Só é necessário no stage builder (já copiado lá)
 *.tsbuildinfo
 
 # ── Ferramentas de desenvolvimento e CI ──────────────────────────────────────
