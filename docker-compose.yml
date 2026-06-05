@@ -1,0 +1,116 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# J.A.R.V.I.S. — docker-compose.yml (Produção / Multi-tenant)
+#
+# Uso local:
+#   docker compose up -d --build
+#
+# Uso em VPS (AWS EC2):
+#   1. Copiar .env para a VPS (via scp ou AWS Secrets Manager)
+#   2. docker compose pull && docker compose up -d
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Backend J.A.R.V.I.S. ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend         # Dockerfile está dentro de /backend
+      dockerfile: Dockerfile
+      target: runner             # Usa o stage final (imagem enxuta)
+
+    container_name: javis-backend
+
+    # ── Variáveis de ambiente ──────────────────────────────────────────────
+    # O arquivo .env NÃO entra na imagem (está no .dockerignore).
+    # Ele é lido em runtime pelo docker-compose e injetado como env vars.
+    # Em produção na AWS, substituir por:
+    #   env_file: [] + secrets via AWS SSM Parameter Store ou Secrets Manager
+    env_file:
+      - ./backend/.env
+
+    # ── Portas ────────────────────────────────────────────────────────────
+    # HOST:CONTAINER — expõe a porta 3001 para o mundo externo.
+    # Em produção com Nginx/Traefik como proxy reverso,
+    # mudar para "127.0.0.1:3001:3001" para aceitar apenas tráfego local.
+    ports:
+      - "3001:3001"
+
+    # ══════════════════════════════════════════════════════════════════════
+    # VOLUMES — A ARMADURA DAS SESSÕES
+    #
+    # Por que isso é crítico para o WhatsApp:
+    #   O Baileys salva a sessão de autenticação em arquivos locais dentro de
+    #   storage/whatsapp-auth/ (chaves criptográficas, credenciais, estado).
+    #   Se o container morrer e reiniciar sem volume, essa pasta é APAGADA,
+    #   forçando um novo scan de QR Code — quebrando o WhatsApp de todos os
+    #   clientes do plano SaaS instantaneamente.
+    #
+    # Com os volumes abaixo, os dados ficam no HOST da VPS (fora do container).
+    # O container pode ser destruído, reconstruído, atualizado — os dados sobrevivem.
+    # ══════════════════════════════════════════════════════════════════════
+    volumes:
+      # Sessão do WhatsApp — O MAIS CRÍTICO
+      # Contém chaves de autenticação multi-device do Baileys.
+      # Perder = QR Code obrigatório para todos os JIDs.
+      - javis_whatsapp_auth:/app/storage/whatsapp-auth
+
+      # Mídias recebidas via WhatsApp (imagens, áudios transcritos, documentos)
+      - javis_whatsapp_media:/app/storage/whatsapp-media
+
+      # Áudios TTS gerados (MP3/OGG temporários — limpos após envio)
+      # Volume garante que um restart durante geração não corrompa o arquivo.
+      - javis_audio_temp:/app/storage/audio
+
+    # ── Política de reinicialização ────────────────────────────────────────
+    # unless-stopped: reinicia automaticamente em caso de crash ou reboot da VPS.
+    # NÃO reinicia se o operador parar manualmente com "docker compose stop".
+    restart: unless-stopped
+
+    # ── Health check ──────────────────────────────────────────────────────
+    # Docker monitora a saúde do serviço. Se /api/health parar de responder,
+    # o container é marcado como "unhealthy" (visível em "docker ps").
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s          # Tempo para o backend inicializar na primeira vez
+
+    # ── Logging ───────────────────────────────────────────────────────────
+    # Limita o tamanho dos logs para não encher o disco da VPS.
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"            # Mantém os 5 logs mais recentes (250MB total)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# VOLUMES NOMEADOS
+#
+# Volumes nomeados são gerenciados pelo Docker Engine diretamente no HOST.
+# Localização padrão na VPS: /var/lib/docker/volumes/javis_*/
+#
+# Comandos úteis em produção:
+#   Inspecionar: docker volume inspect javis_whatsapp_auth
+#   Backup:      docker run --rm -v javis_whatsapp_auth:/data -v $(pwd):/backup \
+#                  alpine tar czf /backup/whatsapp-auth-backup.tar.gz /data
+#   Restaurar:   docker run --rm -v javis_whatsapp_auth:/data -v $(pwd):/backup \
+#                  alpine tar xzf /backup/whatsapp-auth-backup.tar.gz -C /
+# ══════════════════════════════════════════════════════════════════════════════
+volumes:
+  javis_whatsapp_auth:
+    driver: local
+    labels:
+      com.javis.description: "Sessões WhatsApp Baileys — NÃO APAGAR"
+      com.javis.backup: "required"
+
+  javis_whatsapp_media:
+    driver: local
+    labels:
+      com.javis.description: "Mídias recebidas via WhatsApp"
+
+  javis_audio_temp:
+    driver: local
+    labels:
+      com.javis.description: "Áudios TTS temporários"

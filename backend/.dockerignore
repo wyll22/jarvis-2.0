@@ -1,0 +1,46 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# .dockerignore — J.A.R.V.I.S. Backend
+# O que NÃO deve entrar na imagem Docker:
+#   1. Dependências locais (serão instaladas dentro do container)
+#   2. Segredos e variáveis de ambiente (injetados via docker-compose / AWS Secrets)
+#   3. Sessões locais do WhatsApp (persistidas via volume, não na imagem)
+#   4. Arquivos temporários e de build local
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Dependências (reinstaladas dentro do container) ───────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Build local (gerado dentro do container no Stage builder) ─────────────────
+dist/
+
+# ── Segredos — NUNCA devem entrar na imagem ──────────────────────────────────
+.env
+.env.*
+!.env.example          # Permite o exemplo sem segredos
+
+# ── Sessões e dados persistidos via volume ────────────────────────────────────
+# A pasta storage/ completa é gerenciada pelos volumes do docker-compose.
+# Se ela entrar na imagem, uma reinicialização pode sobrescrever sessões salvas.
+storage/whatsapp-auth/
+storage/whatsapp-media/
+storage/audio/
+
+# ── Arquivos temporários de desenvolvimento ────────────────────────────────────
+*.mp3
+*.ogg
+*.wav
+*.log
+
+# ── TypeScript e configurações de dev ────────────────────────────────────────
+tsconfig.json          # Só é necessário no stage builder (já copiado lá)
+*.tsbuildinfo
+
+# ── Ferramentas de desenvolvimento e CI ──────────────────────────────────────
+.git/
+.gitignore
+.github/
+README.md
+*.md
